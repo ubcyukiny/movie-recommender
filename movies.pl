@@ -1,17 +1,14 @@
 % movies.pl - Predicates for working with movie data
 
-% search movies by genre
-search_movies_genre(Genre, Movies) :-
-    true.
+movie(Title, Actors, Year, Genres).
 
-% search movies by director
-search_movies_genre(Director, Movies) :-
-    true.
+% some examples
+movie('Harry Potter and the Sorcerer\'s Stone', ['Daniel Radcliffe', 'Emma Watson', 'Rupert Grint'], 2001, ['adventure']).
+movie('Skyfall', ['Daniel Craig'], 2012, ['action']).
+movie('Avengers: Endgame', ['Robert Downey Jr', 'Scarlett Johansson', 'Chris Evans', 'Chris Hemsworth'], 2019, ['action']).
 
-% search movies by actor/actress
-search_movies_genre(Actor, Movies) :-
-    true.
 
-% search movies by year
-search_movies_genre(Year, Movies) :-
+
+% search movies
+search_movies(Actor, Year, Genre, Movies) :-
     true.

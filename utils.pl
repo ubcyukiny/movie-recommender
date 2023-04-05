@@ -1,7 +1,6 @@
 % utils.pl - Handle utility functions
 
-% execute query depends on query
+% execute query
 execute_query(Query) :-
-    % pattern matching for queries
-    % search by genre, actors, director, year, rating,
+    % check format valid, return result
     format('You entered: ~s~n', [Query]).
