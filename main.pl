@@ -7,6 +7,12 @@
 :- consult('utils.pl').
 :- consult('api.pl').
 
+% example queries:
+% search_movies("Daniel Radcliffe", _(year), _(genre)) returns movie played by Daniel Radcliffe
+% search_movies(_, 2012, _) returns movies released in 2012
+% search_movies(_, _, "action") returns movies'genre includes action
+% search_movies(_,_,_) returns all movies, no filter
+
 % interact with user
 start :-
     % prompt user for name to load their preference
