@@ -38,5 +38,9 @@ print_lists([H|T]) :-
 search_movies(Actor, Year, Genre) :-
     % has Actor
     findall(Title ,(movie(Title, Year, MovieGenre, MovieActors), member(Genre, MovieGenre), member(Actor, MovieActors)), Movie_list),
+    % if cant find, any return a line telling user cannot find movies with those criteria
+    (length(Movie_list, 0) -> write('Sorry, we could not find any movies with that criteria.\n') ;
     list_to_set(Movie_list, Movie_List_No_Duplicate),
-    print_lists(Movie_List_No_Duplicate).
+    format('Actor: ~w, Year: ~w, Genre: ~w\n', [Actor, Year, Genre]),
+    write('Here is the list of movies that fit your criteria:\n'),
+    print_lists(Movie_List_No_Duplicate)).

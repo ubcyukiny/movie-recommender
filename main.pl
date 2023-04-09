@@ -4,7 +4,6 @@
 
 % Import necessary files
 :- consult('movies.pl').
-:- consult('utils.pl').
 :- consult('api.pl').
 
 % example queries:
@@ -15,19 +14,33 @@
 
 % interact with user
 start :-
-    % prompt user for name to load their preference
     write('This is a movie recommender!\n'),
-    write('To get started, try typing "search_movies(Actor, Year, Genre))\n'),
+    write('It filters movies that by the actor, released year, and genre.\n'),
+    write('To skip a filter, for example if you want to ignore released year, simply type `_`\n'),
 
     % other queries? search by genre/ actor/ year only?
 
     % or could get users input actor, year, genre one by one?
+    write('Enter ONE actor name here (eg. Daniel Radcliffe):\n'),
+    read_line_to_string(user_input, Actor),
+    write('Enter the movie released year here (eg. 2012):\n'),
+    read_line_to_string(user_input, Year),
+    write('Enter 1 Genre here (eg. animation/action/adventure):\n'),
+    read_line_to_string(user_input, Genre),
 
+    % check for wildcards
+    convert_wildcard(Actor, NewActor),
+    convert_wildcard(Genre, NewGenre),
 
-    % read query and execute, execute-query in utils.pl
-    read_line_to_string(user_input, Query),
-    execute_query(Query),
+    % TODO: check year is int after converting to number
+
+    % convert year to wildcard, or int
+    (Year == "_" -> convert_wildcard(Year, NewYear) ; atom_number(Year, NewYear)),
+    search_movies(NewActor, NewYear, NewGenre),
 
     % exit
     write('Thankyou for using this program!').
 
+% convert user input to wildcard if they enter "_"
+convert_wildcard(Input, Output) :-
+    (Input == "_" -> Output = _ ; Output = Input).
