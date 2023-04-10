@@ -1,48 +1,57 @@
-% main.pl - Interact with user
-% to start, ?- consult('main.pl').
-% then, ?- start.
+% This program defines a movie query system that prompts the user for a movie title
+% and returns a list of matching movies using the TMDB API.
 
-% Import necessary files
-:- consult('movies.pl').
-:- consult('api.pl').
+:- use_module(library(http/http_open)).
+:- use_module(library(http/json)).
 
-% example queries:
-% search_movies("Daniel Radcliffe", _(year), _(genre)) returns movie played by Daniel Radcliffe
-% search_movies(_, 2012, _) returns movies released in 2012
-% search_movies(_, _, "action") returns movies genre includes action
-% search_movies(_,_,_) returns all movies, no filter
+% API key
+api_key("4c5db61eb94257bed061e37f5f9945f9").
 
-% interact with user
-start :-
-    %Welecome messages and instructions
-    write('This is a movie recommender!\n'),
-    write('It filters movies by the actor, released year, and genre.\n'),
-    write('To skip a filter, simply type `_`\n'),
+% Landing page prompt
+landing_page :-
+    writeln('Welcome to the Movie Query System!'),
+    writeln('Enter "exit" to quit the program, or press Enter to continue.'),
+    read_line_to_string(user_input, Response),
+    (Response = 'exit' ->
+        halt % Terminate the program if the user enters 'exit'
+    ;
+        true % Continue with the program if the user enters anything else
+    ).
 
-    % Get user inputs
-    % other queries? search by genre/ actor/ year only?
-    % or could get users input actor, year, genre one by one?
-    write('Enter ONE actor name here (eg. Daniel Radcliffe):\n'),
-    read_line_to_string(user_input, Actor),
-    write('Enter the movie released year here (eg. 2012):\n'),
-    read_line_to_string(user_input, Year),
-    write('Enter 1 Genre here (eg. animation/action/adventure):\n'),
-    read_line_to_string(user_input, Genre),
+% HTTP request and JSON parsing
+search_movies(Title, Movies) :-
+    api_key(APIKey),
+    format(atom(EncodedTitle), '~s', [Title]),
+    www_form_encode(EncodedTitle, Encoded),
+    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s', [APIKey, Encoded]),
+    setup_call_cleanup(
+        http_open(URL, In, []),
+        json_read_dict(In, Dict),
+        close(In)
+    ),
+    Movies = Dict.get('results').
 
-    % Check for wildcards and convert
-    convert_wildcard(Actor, NewActor),
-    convert_wildcard(Genre, NewGenre),
-    (Year == "_" -> convert_wildcard(Year, NewYear) ; atom_number(Year, NewYear)),
+% Print movie list with year of release
+print_movies([]) :-
+    writeln('No more movies found matching the search criteria.').
+print_movies([Movie | Rest]) :-
+    format('~w (~w)', [Movie.get('title'), Movie.get('release_date')]),
+    nl,
+    print_movies(Rest).
 
-     % Search using TMDB API
-    (NewActor == wildcard -> search_movies(NewYear, NewGenre, Results) ; search_movies_by_actor(NewActor, Results)),
-    %Filter by Year and Genre
-    filter_movies_by_year(Results, NewYear, FilteredByYear),
-    filter_movies_by_genre(FilteredByYear, NewGenre, FilteredByGenre),
+% Entry point
+main :-
+    landing_page, % Show the landing page prompt first
+    movie_query.
 
-    % Exit Message
-    write('Thankyou for using this program!').
-
-% convert user input to wildcard if they enter "_"
-convert_wildcard(Input, Output) :-
-    (Input == "_" -> Output = wildcard ; Output = Input).
+% Movie query loop
+movie_query :-
+    write('Enter the title of a movie: '),
+    read_line_to_string(user_input, Title),
+    (Title = '' ->
+        true % Exit the loop if the user enters an empty string
+    ;
+        search_movies(Title, Movies),
+        print_movies(Movies),
+        movie_query % Recursive call to continue the loop
+    ).
