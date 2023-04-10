@@ -19,11 +19,26 @@ landing_page :-
     ).
 
 % HTTP request and JSON parsing
-search_movies(Title, Movies) :-
+%search_movies(Title, Movies) :-
+%    api_key(APIKey),
+%    format(atom(EncodedTitle), '~s', [Title]),
+%    www_form_encode(EncodedTitle, Encoded),
+%    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s', [APIKey, Encoded]),
+%    setup_call_cleanup(
+%        http_open(URL, In, []),
+%        json_read_dict(In, Dict),
+%        close(In)
+%    ),
+%    Movies = Dict.get('results').
+
+search_movies(Title, Year, Movies) :-
     api_key(APIKey),
     format(atom(EncodedTitle), '~s', [Title]),
-    www_form_encode(EncodedTitle, Encoded),
-    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s', [APIKey, Encoded]),
+    format(atom(EncodedYear), '~s', [Year]),
+    www_form_encode(EncodedTitle, WWW_EncodedTitle),
+    www_form_encode(EncodedYear, WWW_EncodedYear),
+    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s&year=~s', [APIKey, WWW_EncodedTitle, WWW_EncodedYear]),
+    write(URL),nl,
     setup_call_cleanup(
         http_open(URL, In, []),
         json_read_dict(In, Dict),
@@ -48,10 +63,13 @@ main :-
 movie_query :-
     write('Enter the title of a movie: '),
     read_line_to_string(user_input, Title),
+    write('Enter the year of a movie: '),
+    read_line_to_string(user_input, Year),
     (Title = '' ->
-        true % Exit the loop if the user enters an empty string
+        true
     ;
-        search_movies(Title, Movies),
+%        search_movies(Title, Movies),
+        search_movies(Title, Year, Movies),
         print_movies(Movies),
         movie_query % Recursive call to continue the loop
     ).
