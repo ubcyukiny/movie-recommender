@@ -7,16 +7,10 @@
 % API key
 api_key("4c5db61eb94257bed061e37f5f9945f9").
 
-% Landing page prompt
-landing_page :-
-    writeln('Welcome to the Movie Query System!'),
-    writeln('Enter "exit" to quit the program, or press Enter to continue.'),
-    read_line_to_string(user_input, Response),
-    (Response = 'exit' ->
-        halt % Terminate the program if the user enters 'exit'
-    ;
-        true % Continue with the program if the user enters anything else
-    ).
+% Continue prompt
+continue_prompt :-
+    writeln('Press Enter to continue.'),
+    read_line_to_string(user_input, _).
 
 % HTTP request and JSON parsing
 search_movies(Title, Movies) :-
@@ -33,15 +27,21 @@ search_movies(Title, Movies) :-
 
 % Print movie list with year of release
 print_movies([]) :-
-    writeln('No more movies found matching the search criteria.').
+    writeln('No more movies found matching the search criteria.'),
+    writeln('Type "y" to search for another movie, or "n" to exit.'),
+    read_line_to_string(user_input, Continue),
+    (Continue = "y" ->
+        movie_query % Show the movie query prompt again
+    ;
+        halt % Exit the program
+    ).
 print_movies([Movie | Rest]) :-
     format('~w (~w)', [Movie.get('title'), Movie.get('release_date')]),
     nl,
     print_movies(Rest).
-
+    
 % Entry point
 main :-
-    landing_page, % Show the landing page prompt first
     movie_query.
 
 % Movie query loop
@@ -53,5 +53,6 @@ movie_query :-
     ;
         search_movies(Title, Movies),
         print_movies(Movies),
-        movie_query % Recursive call to continue the loop
+        continue_prompt, % Show the continue prompt after each query
+        movie_query % Show the movie query prompt again
     ).
