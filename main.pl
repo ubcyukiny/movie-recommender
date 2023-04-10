@@ -13,7 +13,7 @@ continue_prompt :-
     read_line_to_string(user_input, _).
 
 % HTTP request and JSON parsing
-search_movies(Title, Movies) :-
+search_movies(Title, Movies, Year) :-
     api_key(APIKey),
     format(atom(EncodedTitle), '~s', [Title]),
     www_form_encode(EncodedTitle, Encoded),
@@ -23,10 +23,20 @@ search_movies(Title, Movies) :-
         json_read_dict(In, Dict),
         close(In)
     ),
-    Movies = Dict.get('results').
+    AllMovies = Dict.get('results'),
+    (var(Year) ->
+        Movies = AllMovies % If no year is specified, return all movies
+    ;
+        include(movie_has_year(Year), AllMovies, Movies) % Filter movies by year
+    ).
 
-% Print movie list with year of release
-print_movies([]) :-
+% Predicate to check if a movie has a certain year of release
+movie_has_year(Year, Movie) :-
+    atom_string(Year, YearStr),
+    sub_string(Movie.get('release_date'), _, _, _, YearStr).
+
+% Print movie list with optional year of release
+print_movies([], _) :-
     writeln('No more movies found matching the search criteria.'),
     writeln('Type "y" to search for another movie, or "n" to exit.'),
     read_line_to_string(user_input, Continue),
@@ -35,10 +45,20 @@ print_movies([]) :-
     ;
         halt % Exit the program
     ).
-print_movies([Movie | Rest]) :-
-    format('~w (~w)', [Movie.get('title'), Movie.get('release_date')]),
+print_movies([Movie | Rest], Year) :-
+    format('~w', [Movie.get('title')]),
+    (   var(Year) ->
+        format(' (~w)', [Movie.get('release_date')]), % Display the year if it's a variable
+        true
+    ;
+        movie_has_year(Year, Movie) ->
+        format(' (~w)', [Movie.get('release_date')]), % Display the year if it matches
+        true
+    ;
+        true
+    ),
     nl,
-    print_movies(Rest).
+    print_movies(Rest, Year).
     
 % Entry point
 main :-
@@ -51,8 +71,15 @@ movie_query :-
     (Title = '' ->
         true % Exit the loop if the user enters an empty string
     ;
-        search_movies(Title, Movies),
-        print_movies(Movies),
+        write('Enter a year (optional): '),
+        read_line_to_string(user_input, YearStr),
+        (YearStr = '' ->
+            search_movies(Title, Movies, _) % If no year is specified, use a variable
+        ;
+            atom_string(Year, YearStr),
+            search_movies(Title, Movies, Year) % Otherwise, filter by the specified year
+        ),
+        print_movies(Movies, Year),
         continue_prompt, % Show the continue prompt after each query
         movie_query % Show the movie query prompt again
     ).
