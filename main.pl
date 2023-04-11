@@ -1,46 +1,141 @@
-% main.pl - Interact with user
-% to start, ?- consult('main.pl').
-% then, ?- start.
+% This program defines a movie query system that prompts the user for a movie title
+% and returns a list of matching movies using the TMDB API.
+% After compiling, write "main." to start app.
 
-% Import necessary files
-:- consult('movies.pl').
-:- consult('api.pl').
+:- use_module(library(http/http_open)).
+:- use_module(library(http/json)).
 
-% example queries:
-% search_movies("Daniel Radcliffe", _(year), _(genre)) returns movie played by Daniel Radcliffe
-% search_movies(_, 2012, _) returns movies released in 2012
-% search_movies(_, _, "action") returns movies'genre includes action
-% search_movies(_,_,_) returns all movies, no filter
+% API key
+api_key("4c5db61eb94257bed061e37f5f9945f9").
 
-% interact with user
-start :-
-    write('This is a movie recommender!\n'),
-    write('It filters movies that by the actor, released year, and genre.\n'),
-    write('To skip a filter, for example if you want to ignore released year, simply type `_`\n'),
+% Continue prompt
+continue_prompt :-
+    writeln('Press Enter to continue.'),
+    read_line_to_string(user_input, _).
 
-    % other queries? search by genre/ actor/ year only?
+% HTTP request and JSON parsing
+% Parse movie query
+search_movies(Title, Movies, Year) :-
+    api_key(APIKey),
+    format(atom(EncodedTitle), '~s', [Title]),
+    www_form_encode(EncodedTitle, Encoded),
+    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s', [APIKey, Encoded]),
+    setup_call_cleanup(
+        http_open(URL, In, []),
+        json_read_dict(In, Dict),
+        close(In)
+    ),
+    AllMovies = Dict.get('results'),
+    (var(Year) ->
+        Movies = AllMovies % If no year is specified, return all movies
+    ;
+        include(movie_has_year(Year), AllMovies, Movies) % Filter movies by year
+    ).
 
-    % or could get users input actor, year, genre one by one?
-    write('Enter ONE actor name here (eg. Daniel Radcliffe):\n'),
-    read_line_to_string(user_input, Actor),
-    write('Enter the movie released year here (eg. 2012):\n'),
-    read_line_to_string(user_input, Year),
-    write('Enter 1 Genre here (eg. animation/action/adventure):\n'),
-    read_line_to_string(user_input, Genre),
+% HTTP request and JSON parsing for director search
+search_director(Director, Movies, Year) :-
+    api_key(APIKey),
+    format(atom(EncodedDirector), '~s', [Director]),
+    www_form_encode(EncodedDirector, Encoded),
+    format(atom(URL), 'https://api.themoviedb.org/3/search/person?api_key=~s&query=~s', [APIKey, Encoded]),
+    setup_call_cleanup(
+        http_open(URL, In, []),
+        json_read_dict(In, Dict),
+        close(In)
+    ),
+    AllDirectors = Dict.get('results'),
+    (AllDirectors = [] ->
+        Movies = [] % If no directors are found, return an empty list
+    ;
+        nth1(1, AllDirectors, FirstDirector), % Use the first director found
+        DirectorID = FirstDirector.get('id'),
+        format(atom(DirectorMoviesURL), 'https://api.themoviedb.org/3/person/~w/movie_credits?api_key=~s', [DirectorID, APIKey]),
+        setup_call_cleanup(
+            http_open(DirectorMoviesURL, In2, []),
+            json_read_dict(In2, DirectorMoviesDict),
+            close(In2)
+        ),
+        AllCrew = DirectorMoviesDict.get('crew'),
+        include(crew_is_director, AllCrew, AllDirectorsMovies), % Filter only the director position
+        (var(Year) ->
+            Movies = AllDirectorsMovies % If no year is specified, return all movies
+        ;
+            include(movie_has_year(Year), AllDirectorsMovies, Movies) % Filter movies by year
+        )
+    ).
 
-    % check for wildcards
-    convert_wildcard(Actor, NewActor),
-    convert_wildcard(Genre, NewGenre),
+% Predicate to check if a crew member is a director
+crew_is_director(CrewMember) :-
+    CrewMember.get('job') = "Director".
 
-    % TODO: check year is int after converting to number
+% Predicate to check if a movie has a certain year of release
+movie_has_year(Year, Movie) :-
+    atom_string(Year, YearStr),
+    sub_string(Movie.get('release_date'), _, _, _, YearStr).
 
-    % convert year to wildcard, or int
-    (Year == "_" -> convert_wildcard(Year, NewYear) ; atom_number(Year, NewYear)),
-    search_movies(NewActor, NewYear, NewGenre),
+% Print movie list with optional year of release
+print_movies([], _) :-
+    writeln('No more movies found matching the search criteria.'),
+    writeln('Type "y" to search for another movie, or "n" to exit.'),
+    read_line_to_string(user_input, Continue),
+    (Continue = "y" ->
+        movie_query % Show the movie query prompt again
+    ;
+        halt % Exit the program
+    ).
+print_movies([Movie | Rest], Year) :-
+    format('~w', [Movie.get('title')]),
+    (   var(Year) ->
+        format(' (~w)', [Movie.get('release_date')]), % Display the year if it's a variable
+        true
+    ;
+        movie_has_year(Year, Movie) ->
+        format(' (~w)', [Movie.get('release_date')]), % Display the year if it matches
+        true
+    ;
+        true
+    ),
+    nl,
+    print_movies(Rest, Year).
+    
+% App Start
+main :-
+    movie_query.
 
-    % exit
-    write('Thankyou for using this program!').
+% Movie query loop
+movie_query :-
+    write('Enter "1" to search by title or "2" to search by director: '),
+    read_line_to_string(user_input, Option),
 
-% convert user input to wildcard if they enter "_"
-convert_wildcard(Input, Output) :-
-    (Input == "_" -> Output = _ ; Output = Input).
+    run_option(Option).
+
+run_option("1") :-
+    write('Enter the title of a movie: '),
+    read_line_to_string(user_input, Title),
+    process_query(Title, search_movies).
+run_option("2") :-
+    write('Enter the full name of a director: '),
+    read_line_to_string(user_input, Director),
+    process_query(Director, search_director).
+run_option(_) :-
+    write('That was not a valid number, please try again.\n'),
+    movie_query.
+
+
+% Process movie or director query
+process_query(Query, SearchPredicate) :-
+    (Query = '' ->
+        true % Exit the loop if the user enters an empty string
+    ;
+        write('Enter a year (optional): '),
+        read_line_to_string(user_input, YearStr),
+        (YearStr = '' ->
+            call(SearchPredicate, Query, Movies, _) % If no year is specified, use a variable
+        ;
+            atom_string(Year, YearStr),
+            call(SearchPredicate, Query, Movies, Year) % Otherwise, filter by the specified year
+        ),
+        print_movies(Movies, Year),
+        continue_prompt, % Show the continue prompt after each query
+        movie_query % Show the movie query prompt again
+    ).
