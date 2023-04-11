@@ -37,8 +37,7 @@ search_movies(Title, Year, Movies) :-
     format(atom(EncodedYear), '~s', [Year]),
     www_form_encode(EncodedTitle, WWW_EncodedTitle),
     www_form_encode(EncodedYear, WWW_EncodedYear),
-    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s&year=~s', [APIKey, WWW_EncodedTitle, WWW_EncodedYear]),
-    write(URL),nl,
+    format(atom(URL), 'https://api.themoviedb.org/3/search/movie?api_key=~s&query=~s&primary_release_year=~s', [APIKey, WWW_EncodedTitle, WWW_EncodedYear]),
     setup_call_cleanup(
         http_open(URL, In, []),
         json_read_dict(In, Dict),
