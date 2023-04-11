@@ -106,15 +106,21 @@ main :-
 movie_query :-
     write('Enter "1" to search by title or "2" to search by director: '),
     read_line_to_string(user_input, Option),
-    (Option = "1" ->
-        write('Enter the title of a movie: '),
-        read_line_to_string(user_input, Title),
-        process_query(Title, search_movies)
-    ;
-        write('Enter the full name of a director: '),
-        read_line_to_string(user_input, Director),
-        process_query(Director, search_director)
-    ).
+
+    run_option(Option).
+
+run_option("1") :-
+    write('Enter the title of a movie: '),
+    read_line_to_string(user_input, Title),
+    process_query(Title, search_movies).
+run_option("2") :-
+    write('Enter the full name of a director: '),
+    read_line_to_string(user_input, Director),
+    process_query(Director, search_director).
+run_option(_) :-
+    write('That was not a valid number, please try again.\n'),
+    movie_query.
+
 
 % Process movie or director query
 process_query(Query, SearchPredicate) :-
