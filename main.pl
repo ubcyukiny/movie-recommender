@@ -104,9 +104,8 @@ main :-
 
 % Movie query loop
 movie_query :-
-    write('Enter "1" to search by title or "2" to search by director: '),
+    write('Enter "1" to search by title or "2" to search by director, or "3" to search by actors: '),
     read_line_to_string(user_input, Option),
-
     run_option(Option).
 
 run_option("1") :-
@@ -117,9 +116,44 @@ run_option("2") :-
     write('Enter the full name of a director: '),
     read_line_to_string(user_input, Director),
     process_query(Director, search_director).
+run_option("3") :-
+    write('Enter the full name of an actor: '),
+    read_line_to_string(user_input, Actor),
+    process_query(Actor, search_actor).
 run_option(_) :-
     write('That was not a valid number, please try again.\n'),
     movie_query.
+
+% HTTP request and JSON parsing for Actor search
+search_actor(Actor, Movies, Year) :-
+    api_key(APIKey),
+    format(atom(EncodedActor), '~s', [Actor]),
+    www_form_encode(EncodedActor, Encoded),
+    format(atom(URL), 'https://api.themoviedb.org/3/search/person?api_key=~s&query=~s', [APIKey, Encoded]),
+    setup_call_cleanup(
+        http_open(URL, In, []),
+        json_read_dict(In, Dict),
+        close(In)
+    ),
+    AllActors = Dict.get('results'),
+    (AllActors = [] ->
+        Movies = [] % If no actors are found, return an empty list
+    ;
+        nth1(1, AllActors, FirstActor), % Use the first actor found
+        ActorId = FirstActor.get('id'),
+        format(atom(ActorMoviesURL), 'https://api.themoviedb.org/3/person/~w/movie_credits?api_key=~s', [ActorId, APIKey]),
+        setup_call_cleanup(
+            http_open(ActorMoviesURL, In3, []),
+            json_read_dict(In3, ActorMoviesDict),
+            close(In3)
+        ),
+        AllCast = ActorMoviesDict.get('cast'),
+        (var(Year) ->
+            Movies = AllCast % If no year is specified, return all movies
+        ;
+            include(movie_has_year(Year), AllCast, Movies) % Filter movies by year
+        )
+    ).
 
 
 % Process movie or director query
